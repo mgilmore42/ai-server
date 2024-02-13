@@ -1,3 +1,8 @@
+"""Configuration settings for the Flask API."""
+
+
 class Config:
-    # Configuration settings, like database URI, secret keys, etc.
-    DEBUG = True
+	"""TBD."""  # TODO: Add description
+
+	# Configuration settings, like database URI, secret keys, etc.
+	DEBUG = True

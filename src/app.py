@@ -1,8 +1,10 @@
-from flask import Flask
+"""Main application file for the Flask API."""
+
 from config import Config
-from views.training import training_blueprint
+from flask import Flask
 from views.inference import inference_blueprint
 from views.status import status_blueprint
+from views.training import training_blueprint
 
 app = Flask(__name__)
 app.config.from_object(Config)
@@ -13,4 +15,4 @@ app.register_blueprint(inference_blueprint, url_prefix='/api')
 app.register_blueprint(status_blueprint, url_prefix='/api')
 
 if __name__ == '__main__':
-    app.run()
+	app.run()
