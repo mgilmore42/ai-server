@@ -1,8 +1,10 @@
 """Training view."""
 
+from celery import Celery
 from flask import Blueprint, Response, current_app, jsonify, request
 
 training_blueprint = Blueprint('training', __name__)
+training_task_queue = Celery('training', broker='pyamqp://guest@localhost//')
 
 
 @training_blueprint.route('/train', methods=['POST'])
@@ -28,12 +30,13 @@ def train_model() -> Response:
 		The response containing the model training information.
 
 	"""
-	return jsonify(**request.json)
+	return process_model(**request.json)
 
 
+@training_task_queue.task
 def process_model(
 	name: str, task: str, dataset: str, username: str, version: str
-) -> dict:
+) -> Response:
 	"""Processes a model training request.
 
 	Takes the model training request interfaces with the database the queue system to process the request.
