@@ -2,11 +2,13 @@
 
 import logging
 
+from celery import Celery
 from flask import Blueprint, Response, current_app, jsonify, request
 
 logger = logging.getLogger(__name__)
 
 inference_blueprint = Blueprint('inference', __name__)
+inference_task_queue = Celery('inference', broker='pyamqp://guest@localhost//')
 
 
 @inference_blueprint.route('/infer', methods=['POST'])
@@ -28,10 +30,11 @@ def perform_inference() -> Response:
 		The response containing the inference information.
 
 	"""
-	return jsonify(process_inference(**request.json))
+	return process_inference(**request.json)
 
 
-def process_inference(name: str, user: str, version: str, data: object) -> dict:
+@inference_task_queue.task
+def process_inference(name: str, user: str, version: str, data: object) -> Response:
 	"""Processes inference request.
 
 	Parameters
@@ -52,4 +55,4 @@ def process_inference(name: str, user: str, version: str, data: object) -> dict:
 
 	"""
 	current_app.logger.info(f'User: {user} requested inference for model {name}.')
-	return {'model': name, 'version': version, 'user': user, 'data': data}
+	return jsonify({'model': name, 'version': version, 'user': user, 'data': data})
