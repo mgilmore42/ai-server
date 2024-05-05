@@ -1,0 +1,22 @@
+[tool.poetry]
+name = "ai_server"
+version = "0.1.0"
+description = "A server to facilitate AI training and inference"
+authors = ["Mitchell Gilmore <mgilm0re@bu.edu>"]
+license = "MIT"
+readme = "README.md"
+packages = [
+	{ include = "src", from = "." }
+]
+
+[tool.poetry.dependencies]
+python = "^3.12"
+flask = "^3.0.3"
+celery = {extras = ["amqp"], version = "^5.4.0"}
+
+[tool.poetry.scripts]
+ai-server = 'src.app:run'
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
