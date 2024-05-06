@@ -258,6 +258,33 @@ class Database:
 			return {'message': f"Training version {version} added to model {model_name} successfully."}
 		else:
 			return {'message': f"Model {model_name} already has a version {version}."}
+	
+
+	def add_task(self: Self, task: str) -> dict:
+		"""Add a task to the database.
+
+		Parameters
+		----------
+		task : str
+			The task to add.
+
+		Returns
+		-------
+		dict
+			The response containing the task information.
+
+		"""
+		# Check if the task already exists
+		self.cursor.execute("SELECT id FROM tasks WHERE name=?", (task,))
+		existing_task = self.cursor.fetchone()
+
+		# If the task doesn't exist, insert it into the database
+		if existing_task is None:
+			self.cursor.execute("INSERT INTO tasks (name) VALUES (?)", (task,))
+			self.conn.commit()
+			return {'message': f"Task {task} added successfully."}
+		else:
+			return {'message': f"Task {task} already exists."}
 
 	def close(self: Self)-> None:
 		"""Close the database connection."""
