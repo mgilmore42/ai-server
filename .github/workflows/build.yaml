@@ -23,7 +23,7 @@ jobs:
                 python-version: 3.12
 
             - name: Install dependencies
-              run: pip install -r requirements.txt
+              run: pip install poetry && poetry install
 
             - name: Run pytest
-              run: pytest --cov=source test
+              run: pytest
