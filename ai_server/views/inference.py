@@ -2,6 +2,7 @@
 
 import logging
 
+from ai_server.database.database import Database
 from celery import Celery
 from flask import Blueprint, Response, current_app, jsonify, request
 
@@ -55,5 +56,12 @@ def process_inference(name: str, user: str, version: str, data: object) -> Respo
 
 	"""
 	current_app.logger.info(f'User: {user} requested inference for model {name}.')
-	model = current_app.database.get_model(name, version)
-	return jsonify({'message': 'Inference sent successfully.'})
+
+	database = Database()
+	model = database.get_model(name, version)
+	database.add_inference(name, version, user, data)
+
+	if 'message' in model:
+		return jsonify(model)
+	else:
+		return jsonify({'message': 'Inference sent successfully.'})
