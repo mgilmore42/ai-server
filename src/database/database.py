@@ -1,16 +1,12 @@
 import sqlite3
-import logging
+
+from flask import current_app
 
 class Database:
 
-	def __init__(self, logger = None):
+	def __init__(self):
 		self.conn = sqlite3.connect('database.db')
 		self.cursor = self.conn.cursor()
-
-		if logger is None:
-			self.logger = logging.getLogger(__name__)
-		else:
-			self.logger = logger
 
 		# initialize the database
 		self.cursor.executescript('''
@@ -65,20 +61,41 @@ class Database:
 		''')
 	
 	def get_user(self, username):
-		self.cursor.execute("SELECT * FROM users WHERE username = ?", (username,))
-		return self.cursor.fetchone()
+		self.cursor.execute("SELECT username, roles.name FROM users INNER JOIN roles ON users.role_id = roles.id WHERE username = ?", (username,))
+
+		if (result := self.cursor.fetchone()) is not None:
+			return {
+				'username': result[0],
+				'role': result[1]
+			}
 	
-	def add_role(self, role):
+	def get_model(self, model_name, version):
+		self.cursor.execute("SELECT models.name, tasks.name FROM models INNER JOIN tasks ON models.task_id = tasks.id WHERE models.name = ?", (model_name,))
+
+		if (result := self.cursor.fetchone()) is None:
+			return {'message': f"Model {model_name} does not exist."}
+		
+		self.cursor.execute("SELECT version FROM model_versions WHERE model_id = ? AND version = ?", (result[0], version))
+
+		if (result := self.cursor.fetchone()) is not None:
+			return {
+				'model': model_name,
+				'task': result[1],
+				'version': version
+			}
+
+
+	def add_role(self, role) -> dict:
 		# Check if the role already exists
 		self.cursor.execute("SELECT id FROM roles WHERE name=?", (role,))
-		existing_role = self.cursor.fetchone()
 
-		# If the role doesn't exist, insert it into the database
-		if not existing_role:
+		if (result := self.cursor.fetchone()) is None:
 			self.cursor.execute("INSERT INTO roles (name) VALUES (?)", (role,))
 			self.conn.commit()
+			return {'message': f"Role {role} added successfully."}
 		else:
-			print("Role already exists in the database.")
+			return {'message': f"Role {role} already exists."}
+
 		
 	def add_user(self, username, role) -> bool:
 
@@ -87,37 +104,64 @@ class Database:
 		existing_user = self.cursor.fetchone()
 
 		# If the user doesn't exist, insert it into the database
-		if not existing_user:
+		if existing_user is None:
 			self.cursor.execute("SELECT id FROM roles WHERE name=?", (role,))
 			role_id = self.cursor.fetchone()[0]
 			self.cursor.execute("INSERT INTO users (username, role_id) VALUES (?, ?)", (username, role_id))
 			self.conn.commit()
-		else:
-			print("User already exists in the database.")
+
 	
-	def add_model(self, model_name, task_name):
+	def add_model(self, model_name, task_name) -> dict:
 		# Check if the model already exists
 		self.cursor.execute("SELECT id FROM models WHERE name=?", (model_name,))
 		existing_model = self.cursor.fetchone()
 
 		# If the model doesn't exist, insert it into the database
-		if not existing_model:
+		if existing_model is None:
 			self.cursor.execute("SELECT id FROM tasks WHERE name=?", (task_name,))
-			task_id = self.cursor.fetchone()[0]
-			self.cursor.execute("INSERT INTO models (name, task_id) VALUES (?, ?)", (model_name, task_id))
+			
+			if (result := self.cursor.fetchone()) is None:
+				return {'message': f"Task {task_name} does not exist."}
+
+			self.cursor.execute("INSERT INTO models (name, task_id) VALUES (?, ?)", (model_name, result[0]))
 			self.conn.commit()
+
+			return {'message': f"Model {model_name} added successfully."}
 		else:
-			print("Model already exists in the database.")
+			return {'message': f"Model {model_name} already exists."}
+
 	
-	def add_model_version(self, model_name, version, creator):
+	def add_model_version(self, model_name, version, creator) -> dict:
 		# Check if the model version already exists
 		self.cursor.execute("SELECT id FROM models WHERE name=?", (model_name,))
-		model_id = self.cursor.fetchone()[0]
+
+		if (result := self.cursor.fetchone()) is None:
+			current_app.logger.error(f"Model {model_name} does not exist.")
+			return {'message': f"Model {model_name} does not exist. Cannot add version until the base model is created."}
+		else:
+			model_id = result[0]
+		
 		self.cursor.execute("SELECT id FROM users WHERE username=?", (creator,))
-		creator_id = self.cursor.fetchone()[0]
-		self.cursor.execute("INSERT INTO model_versions (model_id, creator_id, version, creation) VALUES (?, ?, ?, datetime('now'))", (model_id, creator_id, version))
-		self.conn.commit()
-	
+
+		# check it the version already exists
+		self.cursor.execute("SELECT id FROM model_versions WHERE model_id = ? AND version = ?", (model_id, version))
+
+		if self.cursor.fetchone() is None:
+			self.cursor.execute("SELECT id FROM users WHERE username=?", (creator,))
+
+			if (result := self.cursor.fetchone()) is None:
+				current_app.logger.error(f"User {creator} does not exist.")
+				return {'message': f"User {creator} does not exist."}
+
+			creator_id = result[0]
+			self.cursor.execute("INSERT INTO model_versions (model_id, creator_id, version, creation) VALUES (?, ?, ?, datetime('now'))", (model_id, creator_id, version))
+			self.conn.commit()
+
+			return {'message': f"Training version {version} added to model {model_name} successfully."}
+		else:
+			return {'message': f"Model {model_name} already has a version {version}."}
+
+
 	def add_event(self, event_name):
 		# Check if the event already exists
 		self.cursor.execute("SELECT id FROM events WHERE name=?", (event_name,))
@@ -156,5 +200,3 @@ class Database:
 
 	def close(self):
 		self.conn.close()
-		self.logger.info("Database connection closed.")
-
