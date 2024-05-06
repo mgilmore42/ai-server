@@ -2,9 +2,11 @@ import sqlite3
 
 from flask import current_app
 
+from typing import Self
+
 class Database:
 
-	def __init__(self):
+	def __init__(self: Self) -> None:
 		self.conn = sqlite3.connect('database.db')
 		self.cursor = self.conn.cursor()
 
@@ -60,16 +62,47 @@ class Database:
 			);
 		''')
 	
-	def get_user(self, username):
+	def get_user(self: Self, username: str) -> dict:
+		"""Query the user registry for information on the selected user.
+
+		Parameters
+		----------
+		username : str
+			The username to get information on.
+
+		Returns
+		-------
+		dict
+			The response containing the user information.
+		
+		"""
 		self.cursor.execute("SELECT username, roles.name FROM users INNER JOIN roles ON users.role_id = roles.id WHERE username = ?", (username,))
 
-		if (result := self.cursor.fetchone()) is not None:
+		if (result := self.cursor.fetchone()) is None:
+			return {'message': f"User {username} does not exist."}
+		else:
 			return {
 				'username': result[0],
 				'role': result[1]
 			}
 	
-	def get_model(self, model_name, version):
+
+	def get_model(self: Self, model_name: str, version: str) -> dict:
+		"""Get information on a model.
+
+		Parameters
+		----------
+		model : str
+			The model to get information on.
+		version : str
+			The version of the model to get information on.
+
+		Returns
+		-------
+		dict
+			The response containing the model information.
+
+		"""
 		self.cursor.execute("SELECT models.name, tasks.name FROM models INNER JOIN tasks ON models.task_id = tasks.id WHERE models.name = ?", (model_name,))
 
 		if (result := self.cursor.fetchone()) is None:
@@ -77,7 +110,9 @@ class Database:
 		
 		self.cursor.execute("SELECT version FROM model_versions WHERE model_id = ? AND version = ?", (result[0], version))
 
-		if (result := self.cursor.fetchone()) is not None:
+		if (result := self.cursor.fetchone()) is None:
+			return {'message': f"Model {model_name} does not have a version {version}."}
+		else:
 			return {
 				'model': model_name,
 				'task': result[1],
@@ -85,7 +120,20 @@ class Database:
 			}
 
 
-	def add_role(self, role) -> dict:
+	def add_role(self: Self, role: str) -> dict:
+		"""Add a role to the database.
+		
+		Parameters
+		----------
+		role : str
+			The role to add.
+			
+		Returns
+		-------
+		dict
+			The response containing the role information.
+
+		"""
 		# Check if the role already exists
 		self.cursor.execute("SELECT id FROM roles WHERE name=?", (role,))
 
@@ -97,7 +145,22 @@ class Database:
 			return {'message': f"Role {role} already exists."}
 
 		
-	def add_user(self, username, role) -> bool:
+	def add_user(self: Self, username: str, role: str) -> dict:
+		"""Add a user to the database.
+
+		Parameters
+		----------
+		username : str
+			The username to add.
+		role : str
+			The role of the user to add.
+
+		Returns
+		-------
+		dict
+			The response containing the user information.
+
+		"""
 
 		# Check if the user already exists
 		self.cursor.execute("SELECT id FROM users WHERE username=?", (username,))
@@ -109,9 +172,27 @@ class Database:
 			role_id = self.cursor.fetchone()[0]
 			self.cursor.execute("INSERT INTO users (username, role_id) VALUES (?, ?)", (username, role_id))
 			self.conn.commit()
+			return {'message': f"User {username} added successfully."}
+		else:
+			return {'message': f"User {username} already exists."}
 
 	
-	def add_model(self, model_name, task_name) -> dict:
+	def add_model(self: Self, model_name: str, task_name: str) -> dict:
+		"""Add a model to the database.
+
+		Parameters
+		----------
+		model_name : str
+			The name of the model to add.
+		task_name : str
+			The task the model is intended for.
+
+		Returns
+		-------
+		dict
+			The response containing the model information.
+
+		"""
 		# Check if the model already exists
 		self.cursor.execute("SELECT id FROM models WHERE name=?", (model_name,))
 		existing_model = self.cursor.fetchone()
@@ -131,7 +212,24 @@ class Database:
 			return {'message': f"Model {model_name} already exists."}
 
 	
-	def add_model_version(self, model_name, version, creator) -> dict:
+	def add_model_version(self: Self, model_name: str, version: str, creator: str) -> dict:
+		"""Add a version to a model.
+
+		Parameters
+		----------
+		model_name : str
+			The name of the model to add the version to.
+		version : str
+			The version to add.
+		creator : str
+			The user creating the version.
+
+		Returns
+		-------
+		dict
+			The response containing the version information.
+
+		"""
 		# Check if the model version already exists
 		self.cursor.execute("SELECT id FROM models WHERE name=?", (model_name,))
 
@@ -161,42 +259,7 @@ class Database:
 		else:
 			return {'message': f"Model {model_name} already has a version {version}."}
 
+	def close(self: Self)-> None:
+		"""Close the database connection."""
 
-	def add_event(self, event_name):
-		# Check if the event already exists
-		self.cursor.execute("SELECT id FROM events WHERE name=?", (event_name,))
-		existing_event = self.cursor.fetchone()
-
-		# If the event doesn't exist, insert it into the database
-		if not existing_event:
-			self.cursor.execute("INSERT INTO events (name) VALUES (?)", (event_name,))
-			self.conn.commit()
-		else:
-			print("Event already exists in the database.")
-	
-	def add_task(self, task_name):
-		# Check if the task already exists
-		self.cursor.execute("SELECT id FROM tasks WHERE name=?", (task_name,))
-		existing_task = self.cursor.fetchone()
-
-		# If the task doesn't exist, insert it into the database
-		if not existing_task:
-			self.cursor.execute("INSERT INTO tasks (name) VALUES (?)", (task_name,))
-			self.conn.commit()
-		else:
-			print("Task already exists in the database.")
-	
-	def add_user_log(self, username, event_name):
-		# Get the user id
-		self.cursor.execute("SELECT id FROM users WHERE username=?", (username,))
-		user_id = self.cursor.fetchone()[0]
-
-		# Get the event id
-		self.cursor.execute("SELECT id FROM events WHERE name=?", (event_name,))
-		event_id = self.cursor.fetchone()[0]
-
-		self.cursor.execute("INSERT INTO user_log (user_id, event_id, time) VALUES (?, ?, datetime('now'))", (user_id, event_id))
-		self.conn.commit()
-
-	def close(self):
 		self.conn.close()
