@@ -55,4 +55,5 @@ def process_inference(name: str, user: str, version: str, data: object) -> Respo
 
 	"""
 	current_app.logger.info(f'User: {user} requested inference for model {name}.')
-	return jsonify({'model': name, 'version': version, 'user': user, 'data': data})
+	model = current_app.database.get_model(name, version)
+	return jsonify({'message': 'Inference sent successfully.'})

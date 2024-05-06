@@ -103,11 +103,13 @@ class Database:
 			The response containing the model information.
 
 		"""
-		self.cursor.execute("SELECT models.name, tasks.name FROM models INNER JOIN tasks ON models.task_id = tasks.id WHERE models.name = ?", (model_name,))
+		self.cursor.execute("SELECT models.id, models.name, tasks.name FROM models INNER JOIN tasks ON models.task_id = tasks.id WHERE models.name = ?", (model_name,))
 
 		if (result := self.cursor.fetchone()) is None:
 			return {'message': f"Model {model_name} does not exist."}
 		
+		task = result[2]
+		print(result)
 		self.cursor.execute("SELECT version FROM model_versions WHERE model_id = ? AND version = ?", (result[0], version))
 
 		if (result := self.cursor.fetchone()) is None:
@@ -115,7 +117,7 @@ class Database:
 		else:
 			return {
 				'model': model_name,
-				'task': result[1],
+				'task': task,
 				'version': version
 			}
 

@@ -1,5 +1,7 @@
 """Status view."""
 
+from ..database.database import Database
+
 from celery import Celery
 from flask import Blueprint, Response, current_app, jsonify, request
 
@@ -25,6 +27,26 @@ def get_user() -> Response:
 	return get_user_info(**request.json)
 
 
+@info_blueprint.route('/info/model', methods=['GET'])
+def get_model() -> Response:
+	"""Get information on a model.
+
+	Parameters
+	----------
+	model : str
+		The model to get information on.
+	version : str
+		The version of the model to get information on.
+
+	Returns
+	-------
+	Response
+		The response containing the model information.
+
+	"""
+	return get_model_info(**request.json)
+
+
 @info_task_queue.task
 def get_user_info(username: str) -> Response:
 	"""Get information on a user.
@@ -45,27 +67,13 @@ def get_user_info(username: str) -> Response:
 	"""
 	current_app.logger.info(f'Checking status for user {username}.')
 
-	return jsonify({'user': username})
+	database = Database()
 
+	user = database.get_user(username)
 
-@info_blueprint.route('/info/model', methods=['GET'])
-def get_model() -> Response:
-	"""Get information on a model.
+	database.close()
 
-	Parameters
-	----------
-	model : str
-		The model to get information on.
-	version : str
-		The version of the model to get information on.
-
-	Returns
-	-------
-	Response
-		The response containing the model information.
-
-	"""
-	return get_model_info(**request.json)
+	return jsonify(user)
 
 
 @info_task_queue.task
@@ -89,5 +97,11 @@ def get_model_info(model: str, version: str) -> Response:
 
 	"""
 	current_app.logger.info(f'Checking status for model {model} version {version}.')
+
+	database = Database()
+
+	model = database.get_model(model, version)
+
+	database.close()
 
 	return jsonify({'model': model, 'version': version})
